@@ -1,12 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 
-	"github.com/gorilla/mux"
-	"gopkg.in/mgo.v2"
+	"github.com/omongaco/viserver/destinations"
+
+	"github.com/gorilla/handlers"
 )
 
 type Island struct {
@@ -43,6 +43,7 @@ type Destination struct {
 	Image       string    `json:"image,omitempty"`
 	Location    *Location `json:"location,omitempty"`
 	City        *City     `json:"city,omitempty"`
+	Type        *Type     `json:"type, omitempty"`
 }
 
 type Category struct {
@@ -67,55 +68,14 @@ type Location struct {
 	Longitude string `json:"longitude, omitempty"`
 }
 
-var provinces []Province
-
-func GetProvinceList(w http.ResponseWriter, req *http.Request) {
-	json.NewEncoder(w).Encode(provinces)
-}
-
-func GetProvince(w http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	for _, item := range provinces {
-		if item.ID == params["id"] {
-			json.NewEncoder(w).Encode(item)
-			return
-		}
-	}
-	json.NewEncoder(w).Encode(&Province{})
-}
-
-func CreateProvince(w http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	var province Province
-	_ = json.NewDecoder(req.Body).Decode(&province)
-	province.ID = params["id"]
-	provinces = append(provinces, province)
-	json.NewEncoder(w).Encode(provinces)
-}
-
-func DeleteProvince(w http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	for index, item := range provinces {
-		if item.ID == params["id"] {
-			provinces = append(provinces[:index], provinces[index+1:]...)
-			break
-		}
-	}
-	json.NewEncoder(w).Encode(provinces)
-}
-
 func main() {
-	router := mux.NewRouter()
-	provinces = append(provinces, Province{ID: "1", Name: "Aceh", Intro: "Something about Aceh", Description: "More words about Aceh for the description"})
-	provinces = append(provinces, Province{ID: "2", Name: "Medan", Intro: "Something about Medan", Description: "More words about Medan for the description"})
-	router.HandleFunc("/provinces", GetProvinceList).Methods("GET")
-	router.HandleFunc("/provinces/{id}", GetProvince).Methods("GET")
-	router.HandleFunc("/provinces/{id}", CreateProvince).Methods("POST")
-	router.HandleFunc("/provinces/{id}", DeleteProvince).Methods("DELETE")
-	log.Fatal(http.ListenAndServe(":8118", router))
+	//	Creating the routers
+	mRouter := destinations.NewRouter()
 
-	session, err := mgo.Dial("localhost")
-	if err != nil {
-		panic(err)
-	}
+	//	Allow access from the front-end side to the methods
+	allowedOrigins := handlers.AllowedOrigins([]string{"*"})
+	allowedMethods := handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT"})
+
+	//	Launch server with CORS validation
+	log.Fatal(http.ListenAndServe(":9000", handlers.CORS(allowedOrigins, allowedMethods)(mRouter)))
 }
